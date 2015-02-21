@@ -12,19 +12,33 @@ public class Browser
 {
 	public static final int PORT_NAME = 80;
 	
+	Socket clientSocket;
+	DataOutputStream outToServer;
+	BufferedReader inFromServer;
+	
 	Stack<String> backwardStack;
-	Stack<String> forwardStick;
+	Stack<String> forwardStack;
 	String hostname = "";
+	boolean runValue = false;
 
 	public void goToLocation(String name)
 	{
 		
+		String modifiedSentence = "";
+		try {
+			outToServer.writeBytes(name + '\n');
+			modifiedSentence = inFromServer.readLine();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		System.out.println(modifiedSentence);
 	}
 	
 	public void startBrowser(InputStream is)
 	{
 		System.out.print("Please input host name: ");
-		BufferedReader inFromUser = new BufferedReader(new InputStreamReader(is)); 
+		BufferedReader inFromUser = new BufferedReader(new InputStreamReader(is));
 		String userInput = "";
 		
 		try {
@@ -36,13 +50,43 @@ public class Browser
 		}
 		
 		hostname = userInput;
+		try {
+			connectToServer();
+			runBrowser(is);
+		} catch (IOException e) {
+			System.out.println("Incorrect host! Exiting!!!");
+			e.printStackTrace();
+		}
 	}
 	
 	private void connectToServer() throws UnknownHostException, IOException
 	{
-		Socket clientSocket = new Socket(hostname, PORT_NAME);
-		DataOutputStream outToServer = new DataOutputStream(clientSocket.getOutputStream());
-		BufferedReader inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+		clientSocket = new Socket(hostname, PORT_NAME);
+		outToServer = new DataOutputStream(clientSocket.getOutputStream());
+		inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+		
+		backwardStack = new Stack<String>();
+		forwardStack = new Stack<String>();
+	}
+	
+	public void runBrowser(InputStream is)
+	{
+		runValue = true;
+		String input = "";
+		BufferedReader inFromUser = new BufferedReader(new InputStreamReader(is));
+		while (runValue)
+		{
+			System.out.print("What command or location do you want to go/visit: ");
+			try {
+				input = inFromUser.readLine();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+				System.out.println("You done messed up!");
+			}
+			respondToCommand(input);
+			
+		}
 	}
 	
 	/**
@@ -81,7 +125,12 @@ public class Browser
 	 */
 	public void goForward()
 	{
-		
+		if (backwardStack.empty())
+		{
+			System.out.println("There is nothing on the forward stack");
+		}
+		String location = forwardStack.pop();
+		goToLocation(location);
 	}
 	
 	/**
@@ -99,7 +148,14 @@ public class Browser
 	
 	public void quit()
 	{
-		
+		runValue = false;
+		System.out.println("Exiting!");
+	}
+	
+	public static void main(String[] args)
+	{
+		Browser newBrowser = new Browser();
+		newBrowser.startBrowser(System.in);
 	}
 	
 }
