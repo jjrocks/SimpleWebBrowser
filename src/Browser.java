@@ -5,7 +5,11 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.Stack;
+import java.util.stream.Stream;
 
 
 public class Browser 
@@ -15,24 +19,52 @@ public class Browser
 	Socket clientSocket;
 	DataOutputStream outToServer;
 	BufferedReader inFromServer;
+	String currentSite = "";
+	
+	HashMap<String, CacheSite> linkedCache;
 	
 	Stack<String> backwardStack;
 	Stack<String> forwardStack;
 	String hostname = "";
 	boolean runValue = false;
+	
+	public Browser()
+	{
+		backwardStack = new Stack<String>();
+		forwardStack = new Stack<String>();
+		linkedCache = new HashMap<String, CacheSite>();
+	}
 
 	public void goToLocation(String name)
 	{
 		
 		String modifiedSentence = "";
 		try {
-			outToServer.writeBytes(name + '\n');
-			modifiedSentence = inFromServer.readLine();
+			HTTPGet getRequest = new HTTPGet(hostname, name);
+			outToServer.writeBytes(getRequest.createPacket());
+			
+			Stream<String> lines = inFromServer.lines();
+			//modifiedSentence = inFromServer.readLine();
+			StringBuilder sb = new StringBuilder();
+			for(Iterator<String> iterator = lines.iterator(); iterator.hasNext() ;)
+			{
+				String line = iterator.next();
+				sb.append(line);
+				System.out.println(line);
+			}
+			
+			
+			if(!linkedCache.containsKey(name))
+			{
+				CacheSite cacheSite = new CacheSite(name, sb.toString());
+				linkedCache.put(name, cacheSite);
+			}
+			
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
+			
 			e.printStackTrace();
 		}
-		System.out.println(modifiedSentence);
 	}
 	
 	public void startBrowser(InputStream is)
@@ -64,9 +96,6 @@ public class Browser
 		clientSocket = new Socket(hostname, PORT_NAME);
 		outToServer = new DataOutputStream(clientSocket.getOutputStream());
 		inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-		
-		backwardStack = new Stack<String>();
-		forwardStack = new Stack<String>();
 	}
 	
 	public void runBrowser(InputStream is)
@@ -114,6 +143,8 @@ public class Browser
 			quit();
 			break;
 		default:
+			if (!currentSite.isEmpty()) backwardStack.push(command);
+			currentSite = command;
 			goToLocation(command);
 			break;
 		}
@@ -125,9 +156,10 @@ public class Browser
 	 */
 	public void goForward()
 	{
-		if (backwardStack.empty())
+		if (forwardStack.empty())
 		{
 			System.out.println("There is nothing on the forward stack");
+			return;
 		}
 		String location = forwardStack.pop();
 		goToLocation(location);
@@ -138,12 +170,20 @@ public class Browser
 	 */
 	public void goBackward()
 	{
-		
+		if(backwardStack.empty())
+		{
+			System.out.println("There is nothing on the back stack");
+		}
+		String location = backwardStack.pop();
+		forwardStack.push(location);
+		goToLocation(location);
 	}
 	
 	public void refresh()
 	{
-		
+		CacheSite site = linkedCache.get(currentSite);		
+		HTTPLastModified lastModified = new HTTPLastModified(hostname, site);
+		lastModified.createPacket();
 	}
 	
 	public void quit()
