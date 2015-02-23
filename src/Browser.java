@@ -41,6 +41,7 @@ public class Browser
 		String modifiedSentence = "";
 		try {
 			HTTPGet getRequest = new HTTPGet(hostname, name);
+			connectToWebsite();
 			outToServer.writeBytes(getRequest.createPacket());
 			
 			Stream<String> lines = inFromServer.lines();
@@ -83,15 +84,21 @@ public class Browser
 		
 		hostname = userInput;
 		try {
-			connectToServer();
+			connectToServer(); //TODO: Check to see if you need this part.
 			runBrowser(is);
 		} catch (IOException e) {
 			System.out.println("Incorrect host! Exiting!!!");
 			e.printStackTrace();
+			startBrowser(is);
 		}
 	}
 	
 	private void connectToServer() throws UnknownHostException, IOException
+	{
+		
+	}
+	
+	private void connectToWebsite() throws IOException
 	{
 		clientSocket = new Socket(hostname, PORT_NAME);
 		outToServer = new DataOutputStream(clientSocket.getOutputStream());
@@ -108,12 +115,12 @@ public class Browser
 			System.out.print("What command or location do you want to go/visit: ");
 			try {
 				input = inFromUser.readLine();
+				respondToCommand(input);
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 				System.out.println("You done messed up!");
 			}
-			respondToCommand(input);
 			
 		}
 	}
@@ -143,7 +150,12 @@ public class Browser
 			quit();
 			break;
 		default:
-			if (!currentSite.isEmpty()) backwardStack.push(command);
+			if (!currentSite.isEmpty())
+			{
+				backwardStack.push(currentSite);
+				forwardStack.clear();
+			}
+			
 			currentSite = command;
 			goToLocation(command);
 			break;
@@ -162,6 +174,8 @@ public class Browser
 			return;
 		}
 		String location = forwardStack.pop();
+		backwardStack.push(currentSite);
+		currentSite = location;
 		goToLocation(location);
 	}
 	
@@ -173,9 +187,10 @@ public class Browser
 		if(backwardStack.empty())
 		{
 			System.out.println("There is nothing on the back stack");
+			return;
 		}
 		String location = backwardStack.pop();
-		forwardStack.push(location);
+		forwardStack.push(currentSite);
 		goToLocation(location);
 	}
 	
@@ -183,7 +198,27 @@ public class Browser
 	{
 		CacheSite site = linkedCache.get(currentSite);		
 		HTTPLastModified lastModified = new HTTPLastModified(hostname, site);
-		lastModified.createPacket();
+		String packet = lastModified.createPacket();
+		goToLocation(packet);
+		
+		
+		try {
+			connectToWebsite();
+			outToServer.writeBytes(packet);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		Stream<String> lines = inFromServer.lines();
+		//modifiedSentence = inFromServer.readLine();
+		StringBuilder sb = new StringBuilder();
+		for(Iterator<String> iterator = lines.iterator(); iterator.hasNext() ;)
+		{
+			String line = iterator.next();
+			sb.append(line);
+			System.out.println(line);
+		}
 	}
 	
 	public void quit()
