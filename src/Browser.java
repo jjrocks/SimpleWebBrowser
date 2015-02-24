@@ -61,6 +61,8 @@ public class Browser
 				linkedCache.put(name, cacheSite);
 			}
 			
+			clientSocket.close();
+			
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			
@@ -199,7 +201,6 @@ public class Browser
 		CacheSite site = linkedCache.get(currentSite);		
 		HTTPLastModified lastModified = new HTTPLastModified(hostname, site);
 		String packet = lastModified.createPacket();
-		goToLocation(packet);
 		
 		
 		try {
@@ -209,15 +210,24 @@ public class Browser
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		
-		Stream<String> lines = inFromServer.lines();
-		//modifiedSentence = inFromServer.readLine();
-		StringBuilder sb = new StringBuilder();
-		for(Iterator<String> iterator = lines.iterator(); iterator.hasNext() ;)
-		{
-			String line = iterator.next();
-			sb.append(line);
-			System.out.println(line);
+		try {
+			if(!inFromServer.readLine().contains("304"))
+			{
+				Stream<String> lines = inFromServer.lines();
+				for(Iterator<String> iterator = lines.iterator(); iterator.hasNext() ;)
+				{
+					String line = iterator.next();
+					System.out.println(line);
+				}
+			}
+			else
+			{
+				System.out.println("Nothing new! Printing Cache");
+				System.out.println(site.getText());
+			}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 	}
 	
